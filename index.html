@@ -4,33 +4,111 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NongO Bill</title>
+    <!-- นำเข้าไลบรารีสแกนบาร์โค้ด และไอคอนพรีเมียม -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Sarabun', sans-serif; background: #f5f5f5; }
-        .header { background: #1976D2; color: white; padding: 15px; text-align: center; font-size: 20px; font-weight: bold; }
+        body { font-family: 'Sarabun', sans-serif; background: #f0f2f5; color: #333; }
+        .header { background: #1976D2; color: white; padding: 18px; text-align: center; font-size: 22px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: flex; justify-content: center; align-items: center; gap: 10px; }
         .container { padding: 15px; max-width: 600px; margin: 0 auto; }
-        .card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input, select { width: 100%; padding: 10px; margin: 5px 0 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
-        input[readonly] { background: #f5f5f5; color: #666; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 8px; }
+        .card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.05); }
+        input, select { width: 100%; padding: 12px; margin: 5px 0 12px; border: 1px solid #ced4da; border-radius: 8px; font-size: 16px; transition: border-color 0.2s; }
+        input:focus, select:focus { outline: none; border-color: #1976D2; box-shadow: 0 0 0 3px rgba(25,118,210,0.1); }
+        input[readonly] { background: #f8f9fa; color: #6c757d; border-color: #e9ecef; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 8px; display: flex; justify-content: center; align-items: center; gap: 8px; transition: all 0.2s; }
+        button:active { transform: scale(0.98); }
         .btn-primary { background: #1976D2; color: white; }
-        .btn-success { background: #388E3C; color: white; }
-        .btn-warning { background: #F57C00; color: white; }
-        .btn-danger  { background: #D32F2F; color: white; }
-        .btn-scan    { background: #7B1FA2; color: white; }
+        .btn-primary:hover { background: #1565C0; }
+        .btn-success { background: #2E7D32; color: white; }
+        .btn-success:hover { background: #1B5E20; }
+        .btn-warning { background: #EF6C00; color: white; }
+        .btn-danger  { background: #C62828; color: white; }
+        .btn-scan    { background: #6A1B9A; color: white; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th { background: #1976D2; color: white; padding: 8px; text-align: left; }
-        td { padding: 8px; border-bottom: 1px solid #eee; }
-        tr:nth-child(even) { background: #f9f9f9; }
-        #scanner-container { width: 100%; min-height: 300px; position: relative; border-radius: 10px; background: #000; }
-        #qr-reader { width: 100% !important; }
-        #qr-reader video { width: 100% !important; height: auto !important; }
+        th { background: #1976D2; color: white; padding: 10px; text-align: left; font-weight: 600; }
+        td { padding: 10px; border-bottom: 1px solid #e9ecef; }
+        tr:nth-child(even) { background: #f8f9fa; }
+        
+        /* AppSheet Style Scanner Design */
+        #scanner-container { width: 100%; position: relative; border-radius: 12px; background: #000; overflow: hidden; display: none; margin-top: 12px; border: 2px solid #6A1B9A; }
+        #qr-reader { width: 100% !important; border: none !important; }
+        #qr-reader video { width: 100% !important; height: auto !important; object-fit: cover; }
         #qr-reader__scan_region { width: 100% !important; }
-        .label { font-size: 13px; color: #666; margin-bottom: 3px; }
-        .total-box { background: #E3F2FD; border-radius: 8px; padding: 10px; margin-top: 10px; }
-        .total-row { display: flex; justify-content: space-between; padding: 3px 0; }
-        .badge { background: #1976D2; color: white; border-radius: 50%; padding: 2px 7px; font-size: 12px; }
+        
+        /* เลเซอร์สแกนและกรอบเล็งแบบ AppSheet */
+        .scanner-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .scanner-target-box {
+            position: relative;
+            width: 250px;
+            height: 250px;
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 16px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* ทำรอบๆ มืดลงเพื่อเน้นกรอบเล็ง */
+        }
+        /* มุมกรอบสีม่วง/น้ำเงิน */
+        .corner {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-color: #bb86fc;
+            border-style: solid;
+            border-width: 0;
+        }
+        .top-left     { top: -2px; left: -2px; border-top-width: 4px; border-l-width: 4px; border-top-left-radius: 8px; }
+        .top-right    { top: -2px; right: -2px; border-top-width: 4px; border-r-width: 4px; border-top-right-radius: 8px; }
+        .bottom-left  { bottom: -2px; left: -2px; border-bottom-width: 4px; border-l-width: 4px; border-bottom-left-radius: 8px; }
+        .bottom-right { bottom: -2px; right: -2px; border-bottom-width: 4px; border-r-width: 4px; border-bottom-right-radius: 8px; }
+        
+        /* แอนิเมชันเส้นเลเซอร์สแกน */
+        .scan-laser {
+            position: absolute;
+            left: 5%;
+            width: 90%;
+            height: 3px;
+            background: linear-gradient(to right, transparent, #00E676, transparent);
+            box-shadow: 0 0 8px #00E676;
+            animation: moveLaser 2.5s linear infinite;
+        }
+        @keyframes moveLaser {
+            0% { top: 5%; }
+            50% { top: 95%; }
+            100% { top: 5%; }
+        }
+        .scan-instruction {
+            color: #fff;
+            font-size: 13px;
+            background: rgba(0,0,0,0.7);
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+
+        /* ปุ่มเครื่องมือสแกนแบบลอยตัว */
+        .scanner-tools {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: #212121;
+            border-top: 1px solid #333;
+        }
+
+        .label { font-size: 14px; font-weight: 600; color: #495057; margin-bottom: 5px; display: block; }
+        .total-box { background: #E3F2FD; border-radius: 8px; padding: 12px; margin-top: 12px; border: 1px solid #BBDEFB; }
+        .total-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 15px; }
+        .total-row.grand-total { font-size: 18px; font-weight: bold; color: #0D47A1; margin-top: 5px; border-top: 1px dashed #90CAF9; padding-top: 5px; }
+        .badge { background: #1976D2; color: white; border-radius: 12px; padding: 2px 8px; font-size: 12px; font-weight: bold; }
 
         /* Popup Overlay */
         .popup-overlay {
@@ -38,115 +116,196 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.6);
             z-index: 1000;
             justify-content: center;
             align-items: center;
+            backdrop-filter: blur(4px);
         }
         .popup-overlay.show { display: flex; }
         .popup-box {
             background: white;
-            border-radius: 15px;
-            padding: 20px;
+            border-radius: 16px;
+            padding: 24px;
             width: 90%;
             max-width: 400px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            animation: popIn 0.2s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         @keyframes popIn {
             from { transform: scale(0.8); opacity: 0; }
             to   { transform: scale(1);   opacity: 1; }
         }
         .popup-title {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
-            color: #388E3C;
+            color: #2E7D32;
             text-align: center;
-            margin-bottom: 15px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         .popup-row {
             display: flex;
             justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px solid #eee;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f5;
             font-size: 15px;
         }
         .popup-row:last-of-type { border-bottom: none; }
-        .popup-label { color: #666; }
-        .popup-value { font-weight: bold; color: #333; }
+        .popup-label { color: #6c757d; }
+        .popup-value { font-weight: bold; color: #212529; }
         .popup-btn {
-            margin-top: 15px;
-            background: #388E3C;
+            margin-top: 20px;
+            background: #2E7D32;
             color: white;
             border: none;
             border-radius: 8px;
-            padding: 12px;
+            padding: 14px;
             width: 100%;
             font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
+            box-shadow: 0 4px 12px rgba(46,125,50,0.25);
         }
+        
+        /* ระบบแจ้งเตือนลอยตัว (Toast Notification System) */
+        .notification-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            max-width: 400px;
+            pointer-events: none;
+        }
+        .toast {
+            background: #323232;
+            color: #fff;
+            padding: 12px 18px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast-success { background: #2E7D32; border-left: 5px solid #1B5E20; }
+        .toast-error { background: #C62828; border-left: 5px solid #B71C1C; }
+        .toast-info { background: #1976D2; border-left: 5px solid #0D47A1; }
     </style>
 </head>
 <body>
 
-<div class="header">🛒 NongO Bill</div>
+<div class="header">
+    <i class="fa-solid fa-cart-shopping"></i> NongO Bill
+</div>
 
+<!-- CONTAINER START -->
 <div class="container">
 
     <!-- Bill Number -->
     <div class="card">
-        <div class="label">เลขที่บิล</div>
+        <label class="label" for="billNumber">เลขที่บิล</label>
         <input type="text" id="billNumber" placeholder="กรอกเลขที่บิล">
     </div>
 
-    <!-- Scan / Search -->
+    <!-- Scan / Search Card -->
     <div class="card">
-        <div class="label">บาร์โค้ด</div>
+        <label class="label" for="barcodeInput">บาร์โค้ดสินค้า</label>
         <div style="display:flex; gap:8px;">
             <input type="text" id="barcodeInput" placeholder="สแกนหรือพิมพ์บาร์โค้ด" style="margin:0;">
-            <button class="btn-scan" style="width:auto; padding:10px 15px; margin:0;" onclick="initAudio(); startScan()">📷</button>
+            <button class="btn-scan" style="width:auto; padding:0 20px; margin:0;" onclick="initAudio(); toggleScan()" id="btn-toggle-scan">
+                <i class="fa-solid fa-camera"></i> สแกน
+            </button>
         </div>
 
-        <div id="scanner-container" style="display:none; margin-top:10px;"></div>
+        <!-- ส่วนหัวสแกนเนอร์สไตล์ AppSheet พร้อมเลเซอร์และปุ่มควบคุม -->
+        <div id="scanner-container">
+            <div id="qr-reader"></div>
+            <!-- เล็งเป้าสแกนและไฟเลเซอร์ -->
+            <div class="scanner-overlay" id="scanner-visuals">
+                <div class="scanner-target-box">
+                    <div class="corner top-left"></div>
+                    <div class="corner top-right"></div>
+                    <div class="corner bottom-left"></div>
+                    <div class="corner bottom-right"></div>
+                    <div class="scan-laser"></div>
+                </div>
+                <div class="scan-instruction">วางรหัสบาร์โค้ดตรงกลางกรอบสีขาว</div>
+            </div>
+            
+            <!-- แผงปรับแต่งกล้องสด: สลับเลนส์ และ แฟลชส่องสว่างเพื่อช่วยโฟกัส -->
+            <div class="scanner-tools">
+                <div style="flex:1;">
+                    <select id="camera-select" style="margin:0; padding:8px; font-size:14px; background:#424242; color:white; border:1px solid #555;">
+                        <option value="">ค้นหากล้อง...</option>
+                    </select>
+                </div>
+                <button id="torch-btn" disabled style="width:auto; margin:0; padding:0 15px; font-size:14px; background:#424242; color:#aaa; border:1px solid #555; height:38px;" onclick="toggleTorch()">
+                    <i class="fa-solid fa-lightbulb"></i> แฟลช: ปิด
+                </button>
+            </div>
+        </div>
 
-        <div class="label" style="margin-top:10px;">ชื่อสินค้า</div>
-        <input type="text" id="productName" placeholder="พิมพ์เพื่อค้นหา" oninput="searchProduct()">
-        <div id="searchResults" style="display:none; border:1px solid #ddd; border-radius:5px; max-height:150px; overflow-y:auto;"></div>
+        <!-- รายละเอียดสินค้าและค้นหา -->
+        <div class="label" style="margin-top:14px;">ชื่อสินค้า</div>
+        <input type="text" id="productName" placeholder="พิมพ์เพื่อค้นหาชื่อสินค้า..." oninput="searchProduct()">
+        <div id="searchResults" style="display:none; border:1px solid #ddd; border-radius:8px; max-height:180px; overflow-y:auto; background:white; box-shadow:0 4px 6px rgba(0,0,0,0.05); margin-bottom:12px;"></div>
 
         <div style="display:flex; gap:8px;">
             <div style="flex:1;">
-                <div class="label">จำนวน</div>
+                <label class="label" for="qty">จำนวน</label>
                 <input type="number" id="qty" placeholder="0" min="0" oninput="calcCostPerUnit()">
             </div>
             <div style="flex:1;">
-                <div class="label">หน่วย</div>
-                <input type="text" id="unit" placeholder="หน่วย">
+                <label class="label" for="unit">หน่วย</label>
+                <input type="text" id="unit" placeholder="เช่น ชิ้น, ห่อ">
             </div>
         </div>
 
         <div style="display:flex; gap:8px;">
             <div style="flex:1;">
-                <div class="label">ทุน/หน่วย (อ่านอย่างเดียว)</div>
+                <label class="label" for="costPerUnit">ทุน/หน่วย (อ่านอย่างเดียว)</label>
                 <input type="number" id="costPerUnit" placeholder="0.00" step="0.01" readonly>
             </div>
             <div style="flex:1;">
-                <div class="label">ราคาขาย/หน่วย</div>
+                <label class="label" for="sellPrice">ราคาขาย/หน่วย</label>
                 <input type="number" id="sellPrice" placeholder="0.00" step="0.01">
             </div>
         </div>
 
-        <div class="label">รวมทุน (แก้ไขได้)</div>
+        <label class="label" for="totalCost">รวมทุนทั้งหมดของสินค้า (แก้ไขได้)</label>
         <input type="number" id="totalCost" placeholder="0.00" step="0.01" oninput="calcCostPerUnit()">
 
-        <button class="btn-success" onclick="addItem()">➕ เพิ่มรายการ</button>
+        <button class="btn-success" onclick="addItem()" style="margin-top:8px;">
+            <i class="fa-solid fa-plus"></i> เพิ่มรายการสินค้าลงบิล
+        </button>
     </div>
 
-    <!-- Item List -->
+    <!-- บอร์ดแสดงตารางรายการในบิล -->
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <b>รายการ <span class="badge" id="itemCount">0</span></b>
-            <button class="btn-danger" style="width:auto; padding:8px 12px; margin:0; font-size:13px;" onclick="clearItems()">🗑 ล้าง</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <b style="font-size:16px;">รายการสินค้าในบิลปัจจุบัน <span class="badge" id="itemCount">0</span></b>
+            <button class="btn-danger" style="width:auto; padding:8px 14px; margin:0; font-size:13px;" onclick="clearItems()">
+                <i class="fa-solid fa-trash"></i> ล้างบิล
+            </button>
         </div>
+        
         <div style="overflow-x:auto;">
             <table id="itemTable">
                 <thead>
@@ -154,117 +313,169 @@
                         <th>สินค้า</th>
                         <th>จำนวน</th>
                         <th>ทุนรวม</th>
-                        <th>ขาย</th>
-                        <th></th>
+                        <th>ราคาขาย</th>
+                        <th>จัดการ</th>
                     </tr>
                 </thead>
                 <tbody id="itemBody"></tbody>
             </table>
         </div>
+        
         <div class="total-box">
-            <div class="total-row"><span>รวมทุนทั้งหมด</span><span id="sumCost">0.00</span></div>
-            <div class="total-row"><span>รวมกำไร</span><span id="sumProfit">0.00</span></div>
+            <div class="total-row">
+                <span>ต้นทุนรวมของบิลนี้:</span>
+                <span id="sumCost" style="font-weight:600; color:#c62828;">0.00</span>
+            </div>
+            <div class="total-row grand-total">
+                <span>กำไรสุทธิโดยประมาณ:</span>
+                <span id="sumProfit">0.00</span>
+            </div>
         </div>
     </div>
 
-    <!-- Save -->
-    <button class="btn-primary" onclick="saveToSheet()">💾 บันทึกลง Google Sheet</button>
+    <!-- ปุ่มส่งบันทึก -->
+    <button class="btn-primary" id="btn-save-sheet" onclick="saveToSheet()" style="padding:16px; font-size:18px; margin-top:10px;">
+        <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลลง Google Sheet
+    </button>
 
 </div>
+<!-- CONTAINER END -->
 
-<!-- Popup เพิ่มรายการสำเร็จ -->
+<!-- แจ้งเตือนสไลด์ลอย (Toast Notification Container) -->
+<div class="notification-container" id="toast-container"></div>
+
+<!-- Popup ยืนยันรายการสำเร็จ -->
 <div class="popup-overlay" id="popupOverlay">
     <div class="popup-box">
-        <div class="popup-title">✅ เพิ่มรายการสำเร็จ</div>
+        <div class="popup-title">
+            <i class="fa-solid fa-circle-check" style="font-size: 24px;"></i> บันทึกรายการลงบิลสำเร็จ
+        </div>
         <div class="popup-row">
-            <span class="popup-label">สินค้า</span>
+            <span class="popup-label">ชื่อสินค้า</span>
             <span class="popup-value" id="popProductName"></span>
         </div>
         <div class="popup-row">
-            <span class="popup-label">จำนวน</span>
+            <span class="popup-label">จำนวนสินค้า</span>
             <span class="popup-value" id="popQty"></span>
         </div>
         <div class="popup-row">
-            <span class="popup-label">หน่วย</span>
+            <span class="popup-label">หน่วยนับ</span>
             <span class="popup-value" id="popUnit"></span>
         </div>
         <div class="popup-row">
-            <span class="popup-label">ทุน/หน่วย</span>
+            <span class="popup-label">ราคาทุน/หน่วย</span>
             <span class="popup-value" id="popCostPerUnit"></span>
         </div>
         <div class="popup-row">
-            <span class="popup-label">รวมทุน</span>
+            <span class="popup-label">รวมทุนสินค้านี้</span>
             <span class="popup-value" id="popTotalCost"></span>
         </div>
         <div class="popup-row">
             <span class="popup-label">ราคาขาย/หน่วย</span>
             <span class="popup-value" id="popSellPrice"></span>
         </div>
-        <div class="popup-row">
-            <span class="popup-label">กำไร</span>
-            <span class="popup-value" id="popProfit"></span>
+        <div class="popup-row" style="border-top:1.5px dashed #4caf50; margin-top:5px; padding-top:8px;">
+            <span class="popup-label" style="color:#2E7D32; font-weight:bold;">ส่วนต่างกำไร</span>
+            <span class="popup-value" id="popProfit" style="color:#2E7D32; font-size:16px;"></span>
         </div>
-        <button class="popup-btn" onclick="closePopup()">ตกลง</button>
+        <button class="popup-btn" onclick="closePopup()">เสร็จสิ้น</button>
     </div>
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbxJFlMC6F0v3oiVdj4ASV2pSWb9RHe6OesaiEjJZHBucbZmXB_U3Pb8F-2V5QAJlTe4AQ/exec"; // ← ใส่ URL จาก Apps Script
+// กำหนดตัวแปรสำหรับการทำงานหลัก
+const API_URL = "https://script.google.com/macros/s/AKfycbxJFlMC6F0v3oiVdj4ASV2pSWb9RHe6OesaiEjJZHBucbZmXB_U3Pb8F-2V5QAJlTe4AQ/exec";
 let products = [];
 let items = [];
 let html5QrCode = null;
 let audioCtx = null;
+let activeCameraId = null;
+let isTorchOn = false;
 
-// โหลดข้อมูลสินค้าตอนเปิดแอป
+// โหลดรายชื่อสินค้าจาก Google Sheets
 async function loadProducts() {
     try {
         const res = await fetch(API_URL + "?action=getProducts");
         products = await res.json();
-        console.log("โหลดสินค้า", products.length, "รายการ");
+        console.log("ดาวน์โหลดฐานข้อมูลสำเร็จ:", products.length, "รายการ");
+        showToast("success", "โหลดฐานข้อมูลสินค้าสำเร็จ " + products.length + " รายการ");
     } catch(e) {
-        alert("ไม่สามารถโหลดข้อมูลสินค้าได้");
+        showToast("error", "ไม่สามารถดาวน์โหลดฐานข้อมูลสินค้าได้ กรุณาตรวจสอบอินเทอร์เน็ต");
     }
 }
 
-// เตรียม AudioContext
+// ระบบสร้างสัญญาณเสียง (Beep) แบบ Web Audio API
 function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
 }
 
-// เสียง Beep
 function playBeep() {
     if (!audioCtx) return;
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    oscillator.frequency.value = 1800;
-    oscillator.type = "sine";
-    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-    oscillator.start(audioCtx.currentTime);
-    oscillator.stop(audioCtx.currentTime + 0.2);
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = 2000; // คลื่นเสียงสูงเพื่อให้ได้ยินชัดเจน
+        osc.type = "sine";
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.15);
+    } catch(err) {
+        console.warn("Audio Context play blocked by safety policies", err);
+    }
 }
 
-// ค้นหาสินค้าจากบาร์โค้ด
+// แสดงการแจ้งเตือนสไตล์พรีเมียมลอยบนจอ
+function showToast(type, text) {
+    const container = document.getElementById("toast-container");
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+    
+    let icon = '<i class="fa-solid fa-info-circle"></i>';
+    if(type === 'success') icon = '<i class="fa-solid fa-circle-check"></i>';
+    if(type === 'error') icon = '<i class="fa-solid fa-triangle-exclamation"></i>';
+    
+    toast.innerHTML = `${icon} <span>${text}</span>`;
+    container.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add("show"), 50);
+    
+    setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// ค้นหาสินค้าจากรหัสบาร์โค้ด
 function findByBarcode(barcode) {
     return products.find(p => String(p.Barcode) === String(barcode));
 }
 
-// ค้นหาสินค้าจากชื่อ
+// ค้นหาสินค้าจากชื่อสำหรับการพิมพ์แนะนำคำค้นหา
 function searchProduct() {
     const keyword = document.getElementById("productName").value.toLowerCase();
-    if (keyword.length < 1) { document.getElementById("searchResults").style.display = "none"; return; }
+    const div = document.getElementById("searchResults");
+    
+    if (keyword.length < 1) { 
+        div.style.display = "none"; 
+        return; 
+    }
 
     const filtered = products.filter(p => p.ProductName.toLowerCase().includes(keyword));
-    const div = document.getElementById("searchResults");
 
-    if (filtered.length === 0) { div.style.display = "none"; return; }
+    if (filtered.length === 0) { 
+        div.style.display = "none"; 
+        return; 
+    }
 
     div.innerHTML = filtered.slice(0, 8).map(p =>
-        `<div onclick="selectProduct('${p.ProductName.replace(/'/g, "\\'")}')" style="padding:8px; cursor:pointer; border-bottom:1px solid #eee;">${p.ProductName}</div>`
+        `<div onclick="selectProduct('${p.ProductName.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; border-bottom:1px solid #e9ecef; font-size:15px; font-weight:500; hover:background:#f1f3f5;">
+            <i class="fa-solid fa-box" style="margin-right:8px; color:#1976D2;"></i> ${p.ProductName}
+         </div>`
     ).join("");
     div.style.display = "block";
 }
@@ -276,34 +487,41 @@ function selectProduct(name) {
     document.getElementById("searchResults").style.display = "none";
 }
 
-// เติมข้อมูลสินค้าลงฟอร์ม
+// เติมข้อมูลสินค้าลงฟอร์มหลังตรวจสอบพบ
 function fillProduct(p) {
     document.getElementById("productName").value  = p.ProductName;
     document.getElementById("unit").value         = p.Unit;
     document.getElementById("costPerUnit").value  = p.BaseCost;
     document.getElementById("sellPrice").value    = p.BasePrice;
-    // คำนวณรวมทุนใหม่ถ้ามีจำนวนอยู่แล้ว
+    
     const qty = parseFloat(document.getElementById("qty").value) || 0;
     if (qty > 0) {
         document.getElementById("totalCost").value = (qty * p.BaseCost).toFixed(2);
+    } else {
+        // แนะนำเติมจำนวน 1 ชิ้น อัตโนมัติเป็นค่าเบื้องต้นให้ใช้งานง่าย
+        document.getElementById("qty").value = 1;
+        document.getElementById("totalCost").value = parseFloat(p.BaseCost).toFixed(2);
     }
 }
 
-// เมื่อกรอกบาร์โค้ดแล้วกด Enter
+// จัดการเหตุการณ์เมื่อพิมพ์รหัสบาร์โค้ดแล้วกด Enter
 document.getElementById("barcodeInput").addEventListener("keydown", function(e) {
     if (e.key === "Enter") {
         const barcode = this.value.trim();
+        if (!barcode) return;
         const p = findByBarcode(barcode);
         if (p) {
             fillProduct(p);
             document.getElementById("qty").focus();
+            showToast("info", "พบข้อมูลสินค้า: " + p.ProductName);
         } else {
+            showToast("error", "ไม่พบข้อมูลสินค้านี้ในระบบ กรุณากรอกรายละเอียดใหม่");
             document.getElementById("productName").focus();
         }
     }
 });
 
-// คำนวณทุน/หน่วย จากรวมทุน ÷ จำนวน
+// คำนวณราคาทุนต่อหน่วย
 function calcCostPerUnit() {
     const qty   = parseFloat(document.getElementById("qty").value) || 0;
     const total = parseFloat(document.getElementById("totalCost").value) || 0;
@@ -314,14 +532,7 @@ function calcCostPerUnit() {
     }
 }
 
-// คำนวณรวมทุน จาก qty * costPerUnit (ใช้ตอน fillProduct)
-function calcTotal() {
-    const qty  = parseFloat(document.getElementById("qty").value) || 0;
-    const cost = parseFloat(document.getElementById("costPerUnit").value) || 0;
-    document.getElementById("totalCost").value = (qty * cost).toFixed(2);
-}
-
-// เพิ่มรายการ
+// เพิ่มรายการสินค้าลงตารางบิล
 function addItem() {
     const billNo  = document.getElementById("billNumber").value.trim();
     const name    = document.getElementById("productName").value.trim();
@@ -333,18 +544,28 @@ function addItem() {
     const barcode = document.getElementById("barcodeInput").value.trim();
     const profit  = (qty * sell) - total;
 
-    if (!billNo) { alert("กรุณากรอกเลขที่บิล"); return; }
-    if (!name)   { alert("กรุณากรอกชื่อสินค้า"); return; }
-    if (qty <= 0){ alert("กรุณากรอกจำนวน"); return; }
+    if (!billNo) { showToast("error", "กรุณากรอกเลขที่บิลก่อนทำการบันทึกสินค้า"); return; }
+    if (!name)   { showToast("error", "กรุณากรอกชื่อสินค้า"); return; }
+    if (qty <= 0){ showToast("error", "กรุณาระบุจำนวนสินค้าให้มากกว่า 0"); return; }
 
-    items.push({ BillNumber: billNo, Barcode: barcode, ProductName: name, Qty: qty, Unit: unit, CostPerUnit: cost, TotalCost: total, SellPrice: sell });
+    items.push({ 
+        BillNumber: billNo, 
+        Barcode: barcode, 
+        ProductName: name, 
+        Qty: qty, 
+        Unit: unit, 
+        CostPerUnit: cost, 
+        TotalCost: total, 
+        SellPrice: sell 
+    });
+    
     renderItems();
     showPopup({ name, qty, unit, cost, total, sell, profit });
     clearForm();
     document.getElementById("barcodeInput").focus();
 }
 
-// แสดง Popup
+// แสดงและควบคุม Popup สำเร็จ
 function showPopup(item) {
     document.getElementById("popProductName").textContent = item.name;
     document.getElementById("popQty").textContent         = item.qty;
@@ -352,28 +573,31 @@ function showPopup(item) {
     document.getElementById("popCostPerUnit").textContent = item.cost.toFixed(2);
     document.getElementById("popTotalCost").textContent   = item.total.toFixed(2);
     document.getElementById("popSellPrice").textContent   = item.sell.toFixed(2);
-    document.getElementById("popProfit").textContent      = item.profit.toFixed(2);
+    document.getElementById("popProfit").textContent      = item.profit.toFixed(2) + " บาท";
     document.getElementById("popupOverlay").classList.add("show");
 
-    // ปิด Popup อัตโนมัติหลัง 3 วินาที
-    setTimeout(closePopup, 3000);
+    // ปิดหน้าจอป๊อปอัปสั้นๆ หลังจากผ่านไป 2.5 วินาที
+    setTimeout(closePopup, 2500);
 }
 
-// ปิด Popup
 function closePopup() {
     document.getElementById("popupOverlay").classList.remove("show");
 }
 
-// แสดงรายการ
+// อัปเดตรายการสินค้าลงบนอินเตอร์เฟส
 function renderItems() {
     const tbody = document.getElementById("itemBody");
     tbody.innerHTML = items.map((item, i) => `
         <tr>
-            <td>${item.ProductName}</td>
+            <td style="font-weight: 500;">${item.ProductName}</td>
             <td>${item.Qty} ${item.Unit}</td>
-            <td>${item.TotalCost.toFixed(2)}</td>
-            <td>${item.SellPrice}</td>
-            <td><button onclick="removeItem(${i})" style="background:#D32F2F; color:white; border:none; border-radius:3px; padding:3px 8px; cursor:pointer;">ลบ</button></td>
+            <td style="font-weight: 600;">${item.TotalCost.toFixed(2)}</td>
+            <td>${item.SellPrice.toFixed(2)}</td>
+            <td>
+                <button onclick="removeItem(${i})" style="background:#C62828; color:white; border:none; border-radius:6px; padding:6px 12px; font-size:12px; width:auto; margin:0;">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </td>
         </tr>
     `).join("");
 
@@ -382,25 +606,26 @@ function renderItems() {
     const sumCost   = items.reduce((s, x) => s + x.TotalCost, 0);
     const sumProfit = items.reduce((s, x) => s + (x.Qty * x.SellPrice - x.TotalCost), 0);
     document.getElementById("sumCost").textContent   = sumCost.toFixed(2);
-    document.getElementById("sumProfit").textContent = sumProfit.toFixed(2);
+    document.getElementById("sumProfit").textContent = sumProfit.toFixed(2) + " บาท";
 }
 
-// ลบรายการ
+// นำสินค้าออกเฉพาะรายการ
 function removeItem(i) {
     items.splice(i, 1);
     renderItems();
+    showToast("info", "ลบรายการออกจากบิลเรียบร้อยแล้ว");
 }
 
-// ล้างรายการทั้งหมด
+// ล้างบิลสินค้าทิ้งทั้งหมด
 function clearItems() {
     if (items.length === 0) return;
-    if (confirm("ต้องการล้างรายการทั้งหมดใช่ไหม?")) {
+    if (confirm("คุณแน่ใจหรือไม่ว่าต้องการล้างรายการสินค้าทั้งหมดที่เลือกไว้ในบิลนี้?")) {
         items = [];
         renderItems();
+        showToast("info", "ล้างบิลเสร็จสิ้น");
     }
 }
 
-// ล้างฟอร์ม
 function clearForm() {
     document.getElementById("barcodeInput").value = "";
     document.getElementById("productName").value  = "";
@@ -411,12 +636,15 @@ function clearForm() {
     document.getElementById("totalCost").value    = "";
 }
 
-// บันทึกลง Google Sheet
+// ส่งบันทึกข้อมูลเข้าระบบ Google Sheets แบบเรียลไทม์
 async function saveToSheet() {
-    if (items.length === 0) { alert("ไม่มีรายการ"); return; }
+    if (items.length === 0) { 
+        showToast("error", "ไม่มีรายการข้อมูลเพื่อบันทึก กรุณาสแกนหรือเลือกสินค้าก่อน"); 
+        return; 
+    }
 
-    const btn = event.target;
-    btn.textContent = "⏳ กำลังบันทึก...";
+    const btn = document.getElementById("btn-save-sheet");
+    btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> ⏳ กำลังบันทึกข้อมูล...`;
     btn.disabled = true;
 
     let success = 0;
@@ -427,63 +655,263 @@ async function saveToSheet() {
                 body: JSON.stringify({ action: "saveBillItem", ...item })
             });
             success++;
-        } catch(e) {}
+        } catch(e) {
+            console.error("Transmission breakdown", e);
+        }
     }
 
-    btn.textContent = "💾 บันทึกลง Google Sheet";
+    btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> บันทึกลง Google Sheet`;
     btn.disabled = false;
 
     if (success === items.length) {
-        alert(`บันทึกสำเร็จ ${success} รายการ`);
+        showToast("success", `บันทึกข้อมูลสำเร็จแล้วรวมทั้งหมด ${success} รายการ`);
         items = [];
         renderItems();
         document.getElementById("billNumber").value = "";
     } else {
-        alert(`บันทึกสำเร็จ ${success}/${items.length} รายการ`);
+        showToast("error", `มีบางรายการขัดข้อง บันทึกสำเร็จเพียง ${success}/${items.length} รายการ`);
     }
 }
 
-// สแกนบาร์โค้ด
-function startScan() {
+// สวิตช์ปิด/เปิด หน้ากล้องสำหรับสแกน
+async function toggleScan() {
     const container = document.getElementById("scanner-container");
+    const scanBtn = document.getElementById("btn-toggle-scan");
 
     if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().then(() => {
-            container.style.display = "none";
-        });
+        await stopScan();
         return;
     }
 
+    // เปิดใช้งานเสียงแจ้งเตือน
+    initAudio();
+
     container.style.display = "block";
-    container.innerHTML = '<div id="qr-reader"></div>';
+    scanBtn.innerHTML = `<i class="fa-solid fa-circle-stop"></i> ปิดกล้อง`;
+    scanBtn.className = "btn-scan";
+    scanBtn.style.background = "#C62828"; // เปลี่ยนปุ่มเป็นสีแดงเมื่อกล้องทำงาน
 
-    html5QrCode = new Html5Qrcode("qr-reader");
-    html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        function(barcode) {
-            playBeep();
-            document.getElementById("barcodeInput").value = barcode;
-            html5QrCode.stop().then(() => {
-                container.style.display = "none";
-            });
+    // บังคับเตรียมตู้ประมวลผลกล้อง
+    document.getElementById("qr-reader").innerHTML = "";
 
-            const p = findByBarcode(barcode);
-            if (p) {
-                fillProduct(p);
-                document.getElementById("qty").focus();
-            } else {
-                document.getElementById("productName").focus();
+    try {
+        html5QrCode = new Html5Qrcode("qr-reader");
+        
+        // ค้นหารายชื่อกล้องที่เชื่อมต่อกับอุปกรณ์ก่อน
+        const devices = await Html5Qrcode.getCameras();
+        setupCameraSelector(devices);
+
+        // กำหนดตั้งค่าขนาดและจุดประมวลผลกล้องแบบ AppSheet
+        const config = {
+            fps: 22, // เพิ่ม Frame rate เป็นพิเศษ เพื่อให้ระบบถอดรหัสทำได้ลื่นไหล
+            qrbox: function(width, height) {
+                const minSide = Math.min(width, height);
+                const focusSize = Math.floor(minSide * 0.70); // บังคับกรอบสแกน 70% ตรงกลางแบบ AppSheet เพื่อลดการดีเลย์
+                return { width: focusSize, height: focusSize };
+            },
+            aspectRatio: 1.0, // ล็อกอัตราส่วนกรอบเป็นจัตุรัสแบบสมบูรณ์
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true // ใช้ฟีเจอร์ช่วยแกะโค้ดระดับฮาร์ดแวร์หากรองรับ
             }
-        },
-        function(err) {}
-    ).catch(err => {
-        alert("ไม่สามารถเปิดกล้องได้: " + err);
-    });
+        };
+
+        // เริ่มต้นจับพิกัดกล้อง
+        await html5QrCode.start(
+            activeCameraId || { facingMode: "environment" },
+            config,
+            onScanSuccess,
+            onScanError
+        );
+
+        // บังคับระบบจับระยะโฟกัสภาพอย่างต่อเนื่อง (Continuous Autofocus) หลังกล้องทำงานสำเร็จ
+        await enforceContinuousAutofocus();
+
+    } catch (err) {
+        showToast("error", "ไม่สามารถเริ่มเปิดกล้องถ่ายภาพได้: " + err);
+        await stopScan();
+    }
 }
 
-// เริ่มต้น
+// หยุดการทำงานของกล้อง
+async function stopScan() {
+    const container = document.getElementById("scanner-container");
+    const scanBtn = document.getElementById("btn-toggle-scan");
+    
+    if (html5QrCode) {
+        try {
+            // ปิดไฟฉาย (ถ้ามีเปิดใช้งานอยู่) ก่อนหยุดกล้อง
+            if (isTorchOn) {
+                await toggleTorch();
+            }
+            await html5QrCode.stop();
+        } catch(e) {
+            console.warn("หยุดการสแกนกล้องบกพร่องเล็กน้อย", e);
+        }
+        html5QrCode = null;
+    }
+
+    container.style.display = "none";
+    scanBtn.innerHTML = `<i class="fa-solid fa-camera"></i> สแกน`;
+    scanBtn.style.background = "#6A1B9A"; // คืนค่าสีเดิมของปุ่มสแกน
+    disableTorchUI();
+}
+
+// ประมวลผลและแก้ไขปัญหาเมื่อการอ่านรหัสกล้องสำเร็จ
+function onScanSuccess(barcode) {
+    playBeep();
+    showToast("success", "สแกนสำเร็จรหัส: " + barcode);
+    document.getElementById("barcodeInput").value = barcode;
+    
+    // หยุดกล้องเพื่อป้องกันซ้ำซ้อน
+    stopScan();
+
+    const p = findByBarcode(barcode);
+    if (p) {
+        fillProduct(p);
+        document.getElementById("qty").focus();
+    } else {
+        showToast("info", "ค้นหาไม่พบในคลังสินค้า กรุณาระบุชื่อเพื่อเพิ่มใหม่");
+        document.getElementById("productName").value = "";
+        document.getElementById("productName").focus();
+    }
+}
+
+// สำหรับปิดกั้น Debug Error Log ที่เกิดขึ้นขณะสแกนต่อเนื่องเพื่อถอดรหัส
+function onScanError(err) {
+    // ไม่มีกิจกรรมเพื่อให้ระบบทำงานอย่างราบรื่นไม่ขัดข้อง
+}
+
+// จัดตั้งตัวสลับรายการเลนส์กล้องหน้า-หลัง
+function setupCameraSelector(devices) {
+    const selector = document.getElementById("camera-select");
+    selector.innerHTML = "";
+    
+    if (devices && devices.length > 0) {
+        // คัดเลือกรุ่นเลนส์กล้องหลังหลักขึ้นมาเป็นอันดับแรกโดยอัตโนมัติ
+        const backCameras = devices.sort((a, b) => {
+            const labelA = a.label.toLowerCase();
+            const labelB = b.label.toLowerCase();
+            if (labelA.includes("back") || labelA.includes("environment")) return -1;
+            if (labelB.includes("back") || labelB.includes("environment")) return 1;
+            return 0;
+        });
+
+        backCameras.forEach((device, index) => {
+            const option = document.createElement("option");
+            option.value = device.id;
+            option.textContent = device.label || `เลนส์สแกนเนอร์ ${index + 1}`;
+            selector.appendChild(option);
+        });
+
+        // หากยังไม่มีเลนส์ที่เลือก ให้เลือกเลนส์แรกโดยอัตโนมัติ
+        if (!activeCameraId) {
+            activeCameraId = backCameras[0].id;
+        }
+        selector.value = activeCameraId;
+        
+        // เฝ้าตรวจจับการสลับเลนส์กล้องแบบสด
+        selector.onchange = async (e) => {
+            activeCameraId = e.target.value;
+            if (html5QrCode && html5QrCode.isScanning) {
+                await stopScan();
+                await toggleScan();
+            }
+        };
+    } else {
+        selector.innerHTML = `<option value="">ไม่พบฮาร์ดแวร์กล้อง</option>`;
+    }
+}
+
+// สั่งบังคับตั้งค่าฮาร์ดแวร์ให้สแกนอย่างคมชัดตลอดเวลาด้วย Continuous Autofocus
+async function enforceContinuousAutofocus() {
+    setTimeout(async () => {
+        try {
+            if (!html5QrCode) return;
+            const track = html5QrCode.getRunningTrack();
+            if (!track) return;
+
+            const capabilities = track.getCapabilities();
+            const constraints = {};
+
+            // 1. ตรวจสอบการรองรับโฟกัสแบบต่อเนื่อง และสั่งบังคับใช้งานทันที
+            if (capabilities.focusMode) {
+                if (capabilities.focusMode.includes("continuous")) {
+                    constraints.focusMode = "continuous";
+                    console.log("AppSheet Autofocus Mode Enforced: Continuous Focus Activated!");
+                } else if (capabilities.focusMode.includes("macro")) {
+                    constraints.focusMode = "macro"; // ใช้ Macro สำรองหากไม่มี Continuous สำหรับจับวัตถุใกล้หน้าจอ
+                    console.log("AppSheet Focus Backup: Macro Focus Activated!");
+                }
+            }
+
+            // บังคับเขียนโครงสร้างคำสั่งไปยังกล้อง
+            if (Object.keys(constraints).length > 0) {
+                await track.applyConstraints({ advanced: [constraints] });
+            }
+
+            // 2. ตรวจสอบว่าฮาร์ดแวร์รองรับไฟแฟลชหรือไม่
+            const torchBtn = document.getElementById("torch-btn");
+            if (capabilities.torch) {
+                torchBtn.disabled = false;
+                torchBtn.style.color = "#FFD54F";
+                torchBtn.style.borderColor = "#FFD54F";
+                torchBtn.innerHTML = isTorchOn ? `<i class="fa-solid fa-lightbulb"></i> แฟลช: เปิด` : `<i class="fa-solid fa-lightbulb"></i> แฟลช: ปิด`;
+            } else {
+                disableTorchUI();
+            }
+
+        } catch (e) {
+            console.warn("การตั้งค่าความคุมโฟกัสลึกระดับฮาร์ดแวร์ไม่รองรับบนอุปกรณ์เครื่องนี้:", e);
+        }
+    }, 1000); // หน่วงเวลาสั้นๆ หลังกล้องเปิดเพื่อให้สเปคกล้องตอบกลับเรียบร้อย
+}
+
+// สลับการเปิดปิดไฟแฟลชขณะสแกนสินค้า
+async function toggleTorch() {
+    if (!html5QrCode || !html5QrCode.isScanning) return;
+    try {
+        const track = html5QrCode.getRunningTrack();
+        if (track && track.getCapabilities().torch) {
+            isTorchOn = !isTorchOn;
+            await track.applyConstraints({
+                advanced: [{ torch: isTorchOn }]
+            });
+            
+            const torchBtn = document.getElementById("torch-btn");
+            if (isTorchOn) {
+                torchBtn.innerHTML = `<i class="fa-solid fa-lightbulb"></i> แฟลช: เปิด`;
+                torchBtn.style.background = "#FFD54F";
+                torchBtn.style.color = "#212121";
+            } else {
+                torchBtn.innerHTML = `<i class="fa-solid fa-lightbulb"></i> แฟลช: ปิด`;
+                torchBtn.style.background = "#424242";
+                torchBtn.style.color = "#FFD54F";
+            }
+        }
+    } catch(err) {
+        console.error("ไม่สามารถปรับแต่งการตั้งค่าไฟแฟลชของกล้องได้", err);
+    }
+}
+
+function disableTorchUI() {
+    const torchBtn = document.getElementById("torch-btn");
+    torchBtn.disabled = true;
+    torchBtn.style.color = "#aaa";
+    torchBtn.style.background = "#424242";
+    torchBtn.style.borderColor = "#555";
+    torchBtn.innerHTML = `<i class="fa-solid fa-lightbulb"></i> แฟลช: ไม่รองรับ`;
+    isTorchOn = false;
+}
+
+// เรียกให้ระบบทำงานเมื่อเริ่มแอปพลิเคชัน
 loadProducts();
 </script>
 </body>
 </html>
+```
+eof
+
+### คำอธิบายวิธีเล่นและเทคนิคเพื่อให้กล้องโฟกัสดีขึ้นสูงสุด:
+1. **เลือกกล้องที่ถูกต้อง (สำคัญมาก):** หากคุณสแกนด้วยโทรศัพท์ที่มีเลนส์หลายตัว (เช่น iPhone Pro หรือ Android รุ่นท็อป) ให้สังเกตที่เมนูเลือกกล้องมุมล่างสแกนเนอร์ ลองเลือกปรับเลนส์ไปที่เลนส์ที่มีคำว่า `back` หรือเลนส์เบอร์แรกๆ เพื่อหาตัวเลนส์ที่โฟกัสภาพระยะใกล้ได้คมชัดที่สุดครับ
+2. **ใช้งานปุ่มสวิตช์เปิดแฟลช:** หากสถานที่จัดสินค้าของร้านมีเงาตกกระทบมากหรืออยู่ใต้ชั้นวางสินค้าที่มืด แถบบาร์โค้ดจะสะท้อนแสงไม่ดีทำให้สแกนยาก การกดปุ่ม `แฟลช: ปิด` ให้เป็น `แฟลช: เปิด` (มีไฟแฟลชติดขึ้นมา) จะช่วยให้การมองเห็นแถบขาว-ดำของรหัสบาร์โค้ดเด่นชัดขึ้นจนกล้องจับโฟกัสและยิง Beep ติดได้ในเสี้ยววินาทีครับ
+3. **ระบบแจ้งเตือนแบบใหม่:** สังเกตว่าระบบจะไม่ใช้ `alert()` เด้งแบบขวางจออีกต่อไป แต่จะใช้ Toast ลอยจากขอบจอด้านล่างสีเขียว-แดง ทำให้แอปของคุณลื่นไหล มีความเป็นระเบียบและดูเป็นมืออาชีพเหมือนแอปพรีเมียมตัวจริงครับ
