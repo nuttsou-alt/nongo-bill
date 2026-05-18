@@ -292,24 +292,30 @@ async function saveToSheet() {
 }
 
 // สแกนบาร์โค้ด
+let html5QrCode = null;
+
 function startScan() {
     const container = document.getElementById("scanner-container");
-    container.style.display = container.style.display === "none" ? "block" : "none";
 
-    if (container.style.display === "block") {
-        Quagga.init({
-            inputStream: { type: "LiveStream", target: document.getElementById("scanner-video"), constraints: { facingMode: "environment" } },
-            decoder: { readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader"] }
-        }, function(err) {
-            if (err) { alert("ไม่สามารถเปิดกล้องได้"); return; }
-            Quagga.start();
-        });
-
-        Quagga.onDetected(function(result) {
-            const barcode = result.codeResult.code;
-            document.getElementById("barcodeInput").value = barcode;
-            Quagga.stop();
+    if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => {
             container.style.display = "none";
+        });
+        return;
+    }
+
+    container.style.display = "block";
+    container.innerHTML = '<div id="qr-reader"></div>';
+
+    html5QrCode = new Html5Qrcode("qr-reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        function(barcode) {
+            document.getElementById("barcodeInput").value = barcode;
+            html5QrCode.stop().then(() => {
+                container.style.display = "none";
+            });
 
             const p = findByBarcode(barcode);
             if (p) {
@@ -318,12 +324,12 @@ function startScan() {
             } else {
                 document.getElementById("productName").focus();
             }
-        });
-    } else {
-        Quagga.stop();
-    }
+        },
+        function(err) {}
+    ).catch(err => {
+        alert("ไม่สามารถเปิดกล้องได้: " + err);
+    });
 }
-
 // เริ่มต้น
 loadProducts();
 </script>
