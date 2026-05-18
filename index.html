@@ -49,7 +49,7 @@
         <div class="label">บาร์โค้ด</div>
         <div style="display:flex; gap:8px;">
             <input type="text" id="barcodeInput" placeholder="สแกนหรือพิมพ์บาร์โค้ด" style="margin:0;">
-            <button class="btn-scan" style="width:auto; padding:10px 15px; margin:0;" onclick="startScan()">📷</button>
+            <button class="btn-scan" style="width:auto; padding:10px 15px; margin:0;" onclick="initAudio(); startScan()">📷</button>
         </div>
 
         <div id="scanner-container" style="display:none; margin-top:10px;">
@@ -295,7 +295,26 @@ async function saveToSheet() {
 
 // สแกนบาร์โค้ด
 let html5QrCode = null;
+let audioCtx = null;
 
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+    function playBeep() {
+    if (!audioCtx) return;
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.frequency.value = 1800;
+    oscillator.type = "sine";
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.2);
+}
 function startScan() {
     const container = document.getElementById("scanner-container");
 
@@ -315,17 +334,7 @@ function startScan() {
         { fps: 10, qrbox: { width: 250, height: 250 } },
         function(barcode) {
                 // ✅ เสียง Beep
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    oscillator.frequency.value = 1800;
-    oscillator.type = "sine";
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.15);
+    playBeep();
         
             document.getElementById("barcodeInput").value = barcode;
             html5QrCode.stop().then(() => {
