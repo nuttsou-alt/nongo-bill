@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NongO Bill</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Sarabun', sans-serif; background: #f5f5f5; }
+        .header { background: #1976D2; color: white; padding: 15px; text-align: center; font-size: 20px; font-weight: bold; }
+        .container { padding: 15px; max-width: 600px; margin: 0 auto; }
+        .card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input, select { width: 100%; padding: 10px; margin: 5px 0 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 8px; }
+        .btn-primary { background: #1976D2; color: white; }
+        .btn-success { background: #388E3C; color: white; }
+        .btn-warning { background: #F57C00; color: white; }
+        .btn-danger  { background: #D32F2F; color: white; }
+        .btn-scan    { background: #7B1FA2; color: white; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: #1976D2; color: white; padding: 8px; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        #scanner-container { width: 100%; height: 250px; position: relative; overflow: hidden; border-radius: 10px; }
+        #scanner-container video { width: 100%; height: 100%; object-fit: cover; }
+        .label { font-size: 13px; color: #666; margin-bottom: 3px; }
+        .total-box { background: #E3F2FD; border-radius: 8px; padding: 10px; margin-top: 10px; }
+        .total-row { display: flex; justify-content: space-between; padding: 3px 0; }
+        .badge { background: #1976D2; color: white; border-radius: 50%; padding: 2px 7px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="header">🛒 NongO Bill</div>
+
+<div class="container">
+
+    <!-- Bill Number -->
+    <div class="card">
+        <div class="label">เลขที่บิล</div>
+        <input type="text" id="billNumber" placeholder="กรอกเลขที่บิล">
+    </div>
+
+    <!-- Scan / Search -->
+    <div class="card">
+        <div class="label">บาร์โค้ด</div>
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="barcodeInput" placeholder="สแกนหรือพิมพ์บาร์โค้ด" style="margin:0;">
+            <button class="btn-scan" style="width:auto; padding:10px 15px; margin:0;" onclick="startScan()">📷</button>
+        </div>
+
+        <div id="scanner-container" style="display:none; margin-top:10px;">
+            <video id="scanner-video"></video>
+        </div>
+
+        <div class="label" style="margin-top:10px;">ชื่อสินค้า</div>
+        <input type="text" id="productName" placeholder="พิมพ์เพื่อค้นหา" oninput="searchProduct()">
+        <div id="searchResults" style="display:none; border:1px solid #ddd; border-radius:5px; max-height:150px; overflow-y:auto;"></div>
+
+        <div style="display:flex; gap:8px;">
+            <div style="flex:1;">
+                <div class="label">จำนวน</div>
+                <input type="number" id="qty" placeholder="0" min="0" oninput="calcTotal()">
+            </div>
+            <div style="flex:1;">
+                <div class="label">หน่วย</div>
+                <input type="text" id="unit" placeholder="หน่วย">
+            </div>
+        </div>
+
+        <div style="display:flex; gap:8px;">
+            <div style="flex:1;">
+                <div class="label">ทุน/หน่วย</div>
+                <input type="number" id="costPerUnit" placeholder="0.00" step="0.01" oninput="calcTotal()">
+            </div>
+            <div style="flex:1;">
+                <div class="label">ราคาขาย/หน่วย</div>
+                <input type="number" id="sellPrice" placeholder="0.00" step="0.01">
+            </div>
+        </div>
+
+        <div class="label">รวมทุน</div>
+        <input type="number" id="totalCost" placeholder="0.00" readonly style="background:#f5f5f5;">
+
+        <button class="btn-success" onclick="addItem()">➕ เพิ่มรายการ</button>
+    </div>
+
+    <!-- Item List -->
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <b>รายการ <span class="badge" id="itemCount">0</span></b>
+            <button class="btn-danger" style="width:auto; padding:8px 12px; margin:0; font-size:13px;" onclick="clearItems()">🗑 ล้าง</button>
+        </div>
+        <div style="overflow-x:auto;">
+            <table id="itemTable">
+                <thead>
+                    <tr>
+                        <th>สินค้า</th>
+                        <th>จำนวน</th>
+                        <th>ทุนรวม</th>
+                        <th>ขาย</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="itemBody"></tbody>
+            </table>
+        </div>
+        <div class="total-box">
+            <div class="total-row"><span>รวมทุนทั้งหมด</span><span id="sumCost">0.00</span></div>
+            <div class="total-row"><span>รวมกำไร</span><span id="sumProfit">0.00</span></div>
+        </div>
+    </div>
+
+    <!-- Save -->
+    <button class="btn-primary" onclick="saveToSheet()">💾 บันทึกลง Google Sheet</button>
+
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbxJFlMC6F0v3oiVdj4ASV2pSWb9RHe6OesaiEjJZHBucbZmXB_U3Pb8F-2V5QAJlTe4AQ/exec"; // ← ใส่ URL จาก Apps Script
+let products = [];
+let items = [];
+
+// โหลดข้อมูลสินค้าตอนเปิดแอป
+async function loadProducts() {
+    try {
+        const res = await fetch(API_URL + "?action=getProducts");
+        products = await res.json();
+        console.log("โหลดสินค้า", products.length, "รายการ");
+    } catch(e) {
+        alert("ไม่สามารถโหลดข้อมูลสินค้าได้");
+    }
+}
+
+// ค้นหาสินค้าจากบาร์โค้ด
+function findByBarcode(barcode) {
+    return products.find(p => String(p.Barcode) === String(barcode));
+}
+
+// ค้นหาสินค้าจากชื่อ
+function searchProduct() {
+    const keyword = document.getElementById("productName").value.toLowerCase();
+    if (keyword.length < 1) { document.getElementById("searchResults").style.display = "none"; return; }
+
+    const filtered = products.filter(p => p.ProductName.toLowerCase().includes(keyword));
+    const div = document.getElementById("searchResults");
+
+    if (filtered.length === 0) { div.style.display = "none"; return; }
+
+    div.innerHTML = filtered.slice(0, 8).map(p =>
+        `<div onclick="selectProduct('${p.ProductName}')" style="padding:8px; cursor:pointer; border-bottom:1px solid #eee;">${p.ProductName}</div>`
+    ).join("");
+    div.style.display = "block";
+}
+
+// เลือกสินค้าจากรายการค้นหา
+function selectProduct(name) {
+    const p = products.find(x => x.ProductName === name);
+    if (p) fillProduct(p);
+    document.getElementById("searchResults").style.display = "none";
+}
+
+// เติมข้อมูลสินค้าลงฟอร์ม
+function fillProduct(p) {
+    document.getElementById("productName").value  = p.ProductName;
+    document.getElementById("unit").value         = p.Unit;
+    document.getElementById("costPerUnit").value  = p.BaseCost;
+    document.getElementById("sellPrice").value    = p.BasePrice;
+    calcTotal();
+}
+
+// เมื่อกรอกบาร์โค้ดแล้วกด Enter
+document.getElementById("barcodeInput").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+        const barcode = this.value.trim();
+        const p = findByBarcode(barcode);
+        if (p) {
+            fillProduct(p);
+            document.getElementById("qty").focus();
+        } else {
+            document.getElementById("productName").focus();
+        }
+    }
+});
+
+// คำนวณรวมทุน
+function calcTotal() {
+    const qty  = parseFloat(document.getElementById("qty").value) || 0;
+    const cost = parseFloat(document.getElementById("costPerUnit").value) || 0;
+    document.getElementById("totalCost").value = (qty * cost).toFixed(2);
+}
+
+// เพิ่มรายการ
+function addItem() {
+    const billNo  = document.getElementById("billNumber").value.trim();
+    const name    = document.getElementById("productName").value.trim();
+    const qty     = parseFloat(document.getElementById("qty").value) || 0;
+    const unit    = document.getElementById("unit").value.trim();
+    const cost    = parseFloat(document.getElementById("costPerUnit").value) || 0;
+    const sell    = parseFloat(document.getElementById("sellPrice").value) || 0;
+    const total   = qty * cost;
+    const barcode = document.getElementById("barcodeInput").value.trim();
+
+    if (!billNo) { alert("กรุณากรอกเลขที่บิล"); return; }
+    if (!name)   { alert("กรุณากรอกชื่อสินค้า"); return; }
+    if (qty <= 0){ alert("กรุณากรอกจำนวน"); return; }
+
+    items.push({ BillNumber: billNo, Barcode: barcode, ProductName: name, Qty: qty, Unit: unit, CostPerUnit: cost, TotalCost: total, SellPrice: sell });
+    renderItems();
+    clearForm();
+    document.getElementById("barcodeInput").focus();
+}
+
+// แสดงรายการ
+function renderItems() {
+    const tbody = document.getElementById("itemBody");
+    tbody.innerHTML = items.map((item, i) => `
+        <tr>
+            <td>${item.ProductName}</td>
+            <td>${item.Qty} ${item.Unit}</td>
+            <td>${item.TotalCost.toFixed(2)}</td>
+            <td>${item.SellPrice}</td>
+            <td><button onclick="removeItem(${i})" style="background:#D32F2F; color:white; border:none; border-radius:3px; padding:3px 8px; cursor:pointer;">ลบ</button></td>
+        </tr>
+    `).join("");
+
+    document.getElementById("itemCount").textContent = items.length;
+
+    const sumCost   = items.reduce((s, x) => s + x.TotalCost, 0);
+    const sumProfit = items.reduce((s, x) => s + (x.Qty * x.SellPrice - x.TotalCost), 0);
+    document.getElementById("sumCost").textContent   = sumCost.toFixed(2);
+    document.getElementById("sumProfit").textContent = sumProfit.toFixed(2);
+}
+
+// ลบรายการ
+function removeItem(i) {
+    items.splice(i, 1);
+    renderItems();
+}
+
+// ล้างรายการทั้งหมด
+function clearItems() {
+    if (items.length === 0) return;
+    if (confirm("ต้องการล้างรายการทั้งหมดใช่ไหม?")) {
+        items = [];
+        renderItems();
+    }
+}
+
+// ล้างฟอร์ม
+function clearForm() {
+    document.getElementById("barcodeInput").value = "";
+    document.getElementById("productName").value  = "";
+    document.getElementById("qty").value          = "";
+    document.getElementById("unit").value         = "";
+    document.getElementById("costPerUnit").value  = "";
+    document.getElementById("sellPrice").value    = "";
+    document.getElementById("totalCost").value    = "";
+}
+
+// บันทึกลง Google Sheet
+async function saveToSheet() {
+    if (items.length === 0) { alert("ไม่มีรายการ"); return; }
+
+    const btn = event.target;
+    btn.textContent = "⏳ กำลังบันทึก...";
+    btn.disabled = true;
+
+    let success = 0;
+    for (const item of items) {
+        try {
+            await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "saveBillItem", ...item })
+            });
+            success++;
+        } catch(e) {}
+    }
+
+    btn.textContent = "💾 บันทึกลง Google Sheet";
+    btn.disabled = false;
+
+    if (success === items.length) {
+        alert(`บันทึกสำเร็จ ${success} รายการ`);
+        items = [];
+        renderItems();
+        document.getElementById("billNumber").value = "";
+    } else {
+        alert(`บันทึกสำเร็จ ${success}/${items.length} รายการ`);
+    }
+}
+
+// สแกนบาร์โค้ด
+function startScan() {
+    const container = document.getElementById("scanner-container");
+    container.style.display = container.style.display === "none" ? "block" : "none";
+
+    if (container.style.display === "block") {
+        Quagga.init({
+            inputStream: { type: "LiveStream", target: document.getElementById("scanner-video"), constraints: { facingMode: "environment" } },
+            decoder: { readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader"] }
+        }, function(err) {
+            if (err) { alert("ไม่สามารถเปิดกล้องได้"); return; }
+            Quagga.start();
+        });
+
+        Quagga.onDetected(function(result) {
+            const barcode = result.codeResult.code;
+            document.getElementById("barcodeInput").value = barcode;
+            Quagga.stop();
+            container.style.display = "none";
+
+            const p = findByBarcode(barcode);
+            if (p) {
+                fillProduct(p);
+                document.getElementById("qty").focus();
+            } else {
+                document.getElementById("productName").focus();
+            }
+        });
+    } else {
+        Quagga.stop();
+    }
+}
+
+// เริ่มต้น
+loadProducts();
+</script>
+</body>
+</html>
